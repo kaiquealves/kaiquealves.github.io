@@ -5,98 +5,19 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Jogo de Adivinhação de Bandeiras</title>
   <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      font-family: 'Segoe UI', Arial, sans-serif;
-      background: #f5f6fa;
-      color: #222;
-    }
-    #root {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    .centered-container {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem 1rem;
-    }
-    .game-title {
-      font-size: 2.5rem;
-      font-weight: bold;
-      margin-bottom: 1.5rem;
-      color: #2d8cf0;
-      letter-spacing: 1px;
-      text-align: center;
-    }
-    .instructions {
-      max-width: 400px;
-      margin-top: 1.5rem;
-      margin-bottom: 2rem;
-      font-size: 1.1rem;
-      color: #555;
-      text-align: center;
-    }
-    .start-btn {
-      background-color: #2d8cf0;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      padding: 1rem 2.5rem;
-      font-size: 1.3rem;
-      font-weight: bold;
-      cursor: pointer;
-      box-shadow: 0 2px 8px rgba(45,140,240,0.08);
-      transition: background .2s, box-shadow .2s;
-      outline-offset: 2px;
-    }
-    .start-btn:hover, .start-btn:focus {
-      background-color: #1766b3;
-      box-shadow: 0 4px 16px rgba(45,140,240,0.15);
-    }
-    .flag-img {
-      max-width: 80vw;
-      max-height: 40vh;
-      width: auto;
-      height: auto;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-      margin-bottom: 2rem;
-      background-color: #eaeaea;
-    }
-    .loading-spinner {
-      border: 4px solid #eaeaea;
-      border-top: 4px solid #2d8cf0;
-      border-radius: 50%;
-      width: 48px;
-      height: 48px;
-      animation: spin 1s linear infinite;
-      margin-bottom: 1.5rem;
-    }
+    html, body { height: 100%; margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: #f5f6fa; color: #222; }
+    #root { min-height: 100vh; display: flex; flex-direction: column; }
+    .centered-container { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 1rem; }
+    .game-title { font-size: 2.5rem; font-weight: bold; margin-bottom: 1.5rem; color: #2d8cf0; letter-spacing: 1px; text-align: center; }
+    .instructions { max-width: 400px; margin-top: 1.5rem; margin-bottom: 2rem; font-size: 1.1rem; color: #555; text-align: center; }
+    .start-btn { background-color: #2d8cf0; color: #fff; border: none; border-radius: 6px; padding: 1rem 2.5rem; font-size: 1.3rem; font-weight: bold; cursor: pointer; box-shadow: 0 2px 8px rgba(45,140,240,0.08); transition: background .2s, box-shadow .2s; outline-offset: 2px; }
+    .start-btn:hover, .start-btn:focus { background-color: #1766b3; box-shadow: 0 4px 16px rgba(45,140,240,0.15); }
+    .flag-img { max-width: 80vw; max-height: 40vh; width: auto; height: auto; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 2rem; background-color: #eaeaea; }
+    .loading-spinner { border: 4px solid #eaeaea; border-top: 4px solid #2d8cf0; border-radius: 50%; width: 48px; height: 48px; animation: spin 1s linear infinite; margin-bottom: 1.5rem; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .error-message {
-      color: #c0392b;
-      font-weight: bold;
-      margin-bottom: 1rem;
-    }
-    .retry-btn {
-      background-color: #fff;
-      color: #2d8cf0;
-      border: 2px solid #2d8cf0;
-      border-radius: 6px;
-      padding: .7rem 1.5rem;
-      font-size: 1rem;
-      font-weight: bold;
-      cursor: pointer;
-      margin-top: .5rem;
-    }
-    .retry-btn:hover, .retry-btn:focus {
-      background-color: #eaf4ff;
-    }
+    .error-message { color: #c0392b; font-weight: bold; margin-bottom: 1rem; }
+    .retry-btn { background-color: #fff; color: #2d8cf0; border: 2px solid #2d8cf0; border-radius: 6px; padding: .7rem 1.5rem; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: .5rem; }
+    .retry-btn:hover, .retry-btn:focus { background-color: #eaf4ff; }
     @media (max-width:600px) {
       .game-title { font-size: 1.7rem; }
       .instructions { font-size: .98rem; }
@@ -105,12 +26,10 @@
 </head>
 <body>
 <div id="root"></div>
-<!-- React, ReactDOM e Babel -->
+<!-- React and ReactDOM via CDN -->
 <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script type="text/babel">
-
+<script type="text/javascript">
 const { useState, useEffect, useRef } = React;
 
 // SPA Router (simple)
@@ -138,7 +57,6 @@ function Instructions() {
 
 // HomeScreen component
 function HomeScreen({ onStart }) {
-  // For accessibility, focus the button on mount
   const btnRef = useRef(null);
   useEffect(() => { btnRef.current && btnRef.current.focus(); }, []);
   return (
@@ -203,7 +121,7 @@ function GameScreen({ usedCountries, onCountryUsed }) {
   function getRandomCountry() {
     if (!countries) return null;
     const unused = countries.filter(c => !usedCountries.includes(c.name.common));
-    if (unused.length === 0) return null; // Fim do jogo
+    if (unused.length === 0) return null;
     let idx = Math.floor(Math.random() * unused.length);
     return unused[idx];
   }
@@ -218,7 +136,7 @@ function GameScreen({ usedCountries, onCountryUsed }) {
       if (country) onCountryUsed(country.name.common);
     }
     // eslint-disable-next-line
-  }, [countries, usedCountries]);
+  }, [countries]);
 
   // Retry fetch
   function handleRetry() {
@@ -254,27 +172,23 @@ function GameScreen({ usedCountries, onCountryUsed }) {
     setCurrentCountry({ ...currentCountry });
   }
 
-  // Render
   return (
     <div className="centered-container" role="main">
       <div className="game-title" aria-label="Rodada do Jogo">
         Rodada do Jogo
       </div>
-      
       {loading && (
         <>
           <div className="loading-spinner" role="status" aria-label="Carregando"></div>
           <div>Carregando...</div>
         </>
       )}
-
       {fetchError && (
         <>
           <div className="error-message">{fetchError}</div>
           <button className="retry-btn" onClick={handleRetry} aria-label="Tentar novamente">Tentar novamente</button>
         </>
       )}
-
       {!loading && !fetchError && currentCountry && (
         <>
           {!imgError ? (
@@ -303,7 +217,6 @@ function GameScreen({ usedCountries, onCountryUsed }) {
           {/* Aqui viriam as opções de resposta na próxima história */}
         </>
       )}
-
       {!loading && !fetchError && !currentCountry && (
         <div className="error-message">Parabéns! Você já viu todas as bandeiras disponíveis nesta sessão.</div>
       )}
@@ -314,13 +227,13 @@ function GameScreen({ usedCountries, onCountryUsed }) {
 // App component (SPA)
 function App() {
   const [route, navigate] = useRoute();
-  
-  // Mantém países já usados na sessão
+  // Mantém países já usados na sessão (não persiste em storage)
   const [usedCountries, setUsedCountries] = useState([]);
 
   function handleStart() {
+    // Sempre reinicia o array ao começar novo jogo
+    setUsedCountries([]);
     navigate('/game');
-    setUsedCountries([]); // reinicia sessão ao voltar para home e começar de novo
   }
 
   function handleCountryUsed(name) {
@@ -341,7 +254,6 @@ function App() {
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
-
 </script>
 </body>
 </html>
