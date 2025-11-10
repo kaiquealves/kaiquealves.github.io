@@ -72,7 +72,8 @@
       border: 4px solid #eaeaea;
       border-top: 4px solid #2d8cf0;
       border-radius: 50%;
-      width: 48px; height: 48px;
+      width: 48px;
+      height: 48px;
       animation: spin 1s linear infinite;
       margin-bottom: 1.5rem;
     }
@@ -104,12 +105,12 @@
 </head>
 <body>
 <div id="root"></div>
-<!-- React and ReactDOM via CDN -->
+<!-- React, ReactDOM e Babel -->
 <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
 <script type="text/babel">
+
 const { useState, useEffect, useRef } = React;
 
 // SPA Router (simple)
@@ -140,13 +141,11 @@ function HomeScreen({ onStart }) {
   // For accessibility, focus the button on mount
   const btnRef = useRef(null);
   useEffect(() => { btnRef.current && btnRef.current.focus(); }, []);
-  
   return (
     <div className="centered-container" role="main">
       <div className="game-title" aria-label="Jogo de Adivinhação de Bandeiras">
         <span role="img" aria-label="Bandeira">🏳️‍🌈</span> Adivinhe a Bandeira!
       </div>
-      
       <button
         ref={btnRef}
         className="start-btn"
@@ -154,13 +153,15 @@ function HomeScreen({ onStart }) {
         tabIndex={0}
         onClick={onStart}
         onKeyDown={e => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onStart(); }
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onStart();
+          }
         }}
         autoFocus
-        >
+      >
         Começar
       </button>
-      
       <Instructions />
     </div>
   );
@@ -171,134 +172,143 @@ function GameScreen({ usedCountries, onCountryUsed }) {
   const [countries, setCountries] = useState(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
-  
   const [currentCountry, setCurrentCountry] = useState(null);
   const [imgLoading, setImgLoading] = useState(true);
   const [imgError, setImgError] = useState(false);
 
   // Fetch countries on mount
   useEffect(() => {
-    setLoading(true); setFetchError(null);
+    setLoading(true);
+    setFetchError(null);
     fetch('https://restcountries.com/v3.1/all?fields=name,flags')
-     .then(res => {
-       if (!res.ok) throw new Error('Erro ao buscar países');
-       return res.json();
-     })
-     .then(data => {
-       // Filtra países com campos necessários
-       const filtered = data.filter(c =>
-         c.name && c.name.common && c.flags && (c.flags.png || c.flags.svg)
-       );
-       setCountries(filtered);
-       setLoading(false);
-     })
-     .catch(err => {
-       setFetchError('Erro ao carregar bandeiras. Tentar novamente?');
-       setLoading(false);
-     });
-   }, []);
+      .then(res => {
+        if (!res.ok) throw new Error('Erro ao buscar países');
+        return res.json();
+      })
+      .then(data => {
+        // Filtra países com campos necessários
+        const filtered = data.filter(c =>
+          c.name && c.name.common && c.flags && (c.flags.png || c.flags.svg)
+        );
+        setCountries(filtered);
+        setLoading(false);
+      })
+      .catch(err => {
+        setFetchError('Erro ao carregar bandeiras. Tentar novamente?');
+        setLoading(false);
+      });
+  }, []);
 
-   // Sorteia país não repetido
-   function getRandomCountry() {
-     if (!countries) return null;
-     const unused = countries.filter(c => !usedCountries.includes(c.name.common));
-     if (unused.length === 0) return null; // Fim do jogo
-     let idx = Math.floor(Math.random() * unused.length);
-     return unused[idx];
-   }
+  // Sorteia país não repetido
+  function getRandomCountry() {
+    if (!countries) return null;
+    const unused = countries.filter(c => !usedCountries.includes(c.name.common));
+    if (unused.length === 0) return null; // Fim do jogo
+    let idx = Math.floor(Math.random() * unused.length);
+    return unused[idx];
+  }
 
-   // Ao países carregados ou usedCountries mudar, sorteia novo país
-   useEffect(() => {
-     if (countries && countries.length > 0) {
-       const country = getRandomCountry();
-       setCurrentCountry(country);
-       setImgLoading(true);
-       setImgError(false);
-       if (country) onCountryUsed(country.name.common);
-     }
-   // eslint-disable-next-line
-   }, [countries]);
+  // Ao países carregados ou usedCountries mudar, sorteia novo país
+  useEffect(() => {
+    if (countries && countries.length > 0) {
+      const country = getRandomCountry();
+      setCurrentCountry(country);
+      setImgLoading(true);
+      setImgError(false);
+      if (country) onCountryUsed(country.name.common);
+    }
+    // eslint-disable-next-line
+  }, [countries, usedCountries]);
 
-   // Retry fetch
-   function handleRetry() {
-     setCountries(null); setLoading(true); setFetchError(null);
-     setCurrentCountry(null); setImgLoading(true); setImgError(false);
-     // re-trigger fetch
-     fetch('https://restcountries.com/v3.1/all?fields=name,flags')
-     .then(res => {
-       if (!res.ok) throw new Error('Erro ao buscar países');
-       return res.json();
-     })
-     .then(data => {
-       const filtered = data.filter(c =>
-         c.name && c.name.common && c.flags && (c.flags.png || c.flags.svg)
-       );
-       setCountries(filtered);
-       setLoading(false);
-     })
-     .catch(err => {
-       setFetchError('Erro ao carregar bandeiras. Tentar novamente?');
-       setLoading(false);
-     });
-   }
+  // Retry fetch
+  function handleRetry() {
+    setCountries(null);
+    setLoading(true);
+    setFetchError(null);
+    setCurrentCountry(null);
+    setImgLoading(true);
+    setImgError(false);
+    fetch('https://restcountries.com/v3.1/all?fields=name,flags')
+      .then(res => {
+        if (!res.ok) throw new Error('Erro ao buscar países');
+        return res.json();
+      })
+      .then(data => {
+        const filtered = data.filter(c =>
+          c.name && c.name.common && c.flags && (c.flags.png || c.flags.svg)
+        );
+        setCountries(filtered);
+        setLoading(false);
+      })
+      .catch(err => {
+        setFetchError('Erro ao carregar bandeiras. Tentar novamente?');
+        setLoading(false);
+      });
+  }
 
-   // Retry image
-   function handleRetryImg() {
-     setImgLoading(true); setImgError(false);
-   }
+  // Retry image
+  function handleRetryImg() {
+    setImgLoading(true);
+    setImgError(false);
+    // Força recarregar a imagem trocando a key do elemento img
+    setCurrentCountry({ ...currentCountry });
+  }
 
-   // Render
-   return (
-     <div className="centered-container" role="main">
-       <div className="game-title" aria-label="Rodada do Jogo">
-         Rodada do Jogo
-       </div>
-       
-       {loading && (
-         <>
-           <div className="loading-spinner" role="status" aria-label="Carregando"></div>
-           <div>Carregando...</div>
-         </>
-       )}
+  // Render
+  return (
+    <div className="centered-container" role="main">
+      <div className="game-title" aria-label="Rodada do Jogo">
+        Rodada do Jogo
+      </div>
+      
+      {loading && (
+        <>
+          <div className="loading-spinner" role="status" aria-label="Carregando"></div>
+          <div>Carregando...</div>
+        </>
+      )}
 
-       {fetchError && (
-         <>
-           <div className="error-message">{fetchError}</div>
-           <button className="retry-btn" onClick={handleRetry} aria-label="Tentar novamente">Tentar novamente</button>
-         </>
-       )}
+      {fetchError && (
+        <>
+          <div className="error-message">{fetchError}</div>
+          <button className="retry-btn" onClick={handleRetry} aria-label="Tentar novamente">Tentar novamente</button>
+        </>
+      )}
 
-       {!loading && !fetchError && currentCountry && (
-         <>
-           <img
-             className="flag-img"
-             src={currentCountry.flags.png || currentCountry.flags.svg}
-             alt="Bandeira de um país para adivinhar"
-             style={{ display: imgLoading ? 'none' : 'block' }}
-             onLoad={() => setImgLoading(false)}
-             onError={() => { setImgLoading(false); setImgError(true); }}
-           />
-           {imgLoading && !imgError && (
-             <>
-               <div className="loading-spinner" role="status" aria-label="Carregando imagem"></div>
-               <div>Carregando bandeira...</div>
-             </>
-           )}
-           {imgError && (
-             <>
-               <div className="error-message">Imagem não disponível.</div>
-               <button className="retry-btn" onClick={handleRetryImg} aria-label="Tentar recarregar imagem">Tentar recarregar</button>
-             </>
-           )}
-           {/* Aqui viriam as opções de resposta na próxima história */}
-         </>
-       )}
+      {!loading && !fetchError && currentCountry && (
+        <>
+          {!imgError ? (
+            <>
+              {imgLoading && (
+                <>
+                  <div className="loading-spinner" role="status" aria-label="Carregando imagem"></div>
+                  <div>Carregando bandeira...</div>
+                </>
+              )}
+              <img
+                className="flag-img"
+                src={currentCountry.flags.png || currentCountry.flags.svg}
+                alt="Bandeira de um país para adivinhar"
+                style={{ display: imgLoading ? 'none' : 'block' }}
+                onLoad={() => setImgLoading(false)}
+                onError={() => { setImgLoading(false); setImgError(true); }}
+              />
+            </>
+          ) : (
+            <>
+              <div className="error-message">Imagem não disponível.</div>
+              <button className="retry-btn" onClick={handleRetryImg} aria-label="Tentar recarregar imagem">Tentar recarregar</button>
+            </>
+          )}
+          {/* Aqui viriam as opções de resposta na próxima história */}
+        </>
+      )}
 
-       {!loading && !fetchError && !currentCountry && (
-         <div className="error-message">Parabéns! Você já viu todas as bandeiras disponíveis nesta sessão.</div>
-       )}
-     </div>
-   );
+      {!loading && !fetchError && !currentCountry && (
+        <div className="error-message">Parabéns! Você já viu todas as bandeiras disponíveis nesta sessão.</div>
+      )}
+    </div>
+  );
 }
 
 // App component (SPA)
@@ -307,16 +317,14 @@ function App() {
   
   // Mantém países já usados na sessão
   const [usedCountries, setUsedCountries] = useState([]);
-  
+
   function handleStart() {
     navigate('/game');
     setUsedCountries([]); // reinicia sessão ao voltar para home e começar de novo
   }
 
   function handleCountryUsed(name) {
-    setUsedCountries(prev =>
-      prev.includes(name) ? prev : [...prev, name]
-    );
+    setUsedCountries(prev => prev.includes(name) ? prev : [...prev, name]);
   }
 
   return (
@@ -333,6 +341,7 @@ function App() {
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
+
 </script>
 </body>
 </html>
