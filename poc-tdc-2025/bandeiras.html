@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Jogo de Adivinhação de Bandeiras</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f5f6fa;
+      color: #222;
+    }
+    #root {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .centered-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+    .game-title {
+      font-size: 2.5rem;
+      font-weight: bold;
+      margin-bottom: 1.5rem;
+      color: #2d8cf0;
+      letter-spacing: 1px;
+      text-align: center;
+    }
+    .instructions {
+      max-width: 400px;
+      margin-top: 1.5rem;
+      margin-bottom: 2rem;
+      font-size: 1.1rem;
+      color: #555;
+      text-align: center;
+    }
+    .start-btn {
+      background-color: #2d8cf0;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 1rem 2.5rem;
+      font-size: 1.3rem;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(45,140,240,0.08);
+      transition: background .2s, box-shadow .2s;
+      outline-offset: 2px;
+    }
+    .start-btn:hover, .start-btn:focus {
+      background-color: #1766b3;
+      box-shadow: 0 4px 16px rgba(45,140,240,0.15);
+    }
+    .flag-img {
+      max-width: 80vw;
+      max-height: 40vh;
+      width: auto;
+      height: auto;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      margin-bottom: 2rem;
+      background-color: #eaeaea;
+    }
+    .loading-spinner {
+      border: 4px solid #eaeaea;
+      border-top: 4px solid #2d8cf0;
+      border-radius: 50%;
+      width: 48px; height: 48px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 1.5rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-message {
+      color: #c0392b;
+      font-weight: bold;
+      margin-bottom: 1rem;
+    }
+    .retry-btn {
+      background-color: #fff;
+      color: #2d8cf0;
+      border: 2px solid #2d8cf0;
+      border-radius: 6px;
+      padding: .7rem 1.5rem;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: .5rem;
+    }
+    .retry-btn:hover, .retry-btn:focus {
+      background-color: #eaf4ff;
+    }
+    @media (max-width:600px) {
+      .game-title { font-size: 1.7rem; }
+      .instructions { font-size: .98rem; }
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<!-- React and ReactDOM via CDN -->
+<script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// SPA Router (simple)
+function useRoute() {
+  const [route, setRoute] = useState(window.location.hash.replace(/^#/, '') || '/');
+  useEffect(() => {
+    const onHashChange = () => setRoute(window.location.hash.replace(/^#/, '') || '/');
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+  const navigate = (to) => { window.location.hash = to; };
+  return [route, navigate];
+}
+
+// Instructions component
+function Instructions() {
+  return (
+    <div className="instructions" id="instructions">
+      Tente adivinhar a qual país pertence a bandeira exibida.<br />
+      A cada rodada, uma nova bandeira será sorteada.<br />
+      Clique em "Começar" para iniciar!
+    </div>
+  );
+}
+
+// HomeScreen component
+function HomeScreen({ onStart }) {
+  // For accessibility, focus the button on mount
+  const btnRef = useRef(null);
+  useEffect(() => { btnRef.current && btnRef.current.focus(); }, []);
+  
+  return (
+    <div className="centered-container" role="main">
+      <div className="game-title" aria-label="Jogo de Adivinhação de Bandeiras">
+        <span role="img" aria-label="Bandeira">🏳️‍🌈</span> Adivinhe a Bandeira!
+      </div>
+      
+      <button
+        ref={btnRef}
+        className="start-btn"
+        aria-label="Começar o jogo"
+        tabIndex={0}
+        onClick={onStart}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onStart(); }
+        }}
+        autoFocus
+        >
+        Começar
+      </button>
+      
+      <Instructions />
+    </div>
+  );
+}
+
+// GameScreen component
+function GameScreen({ usedCountries, onCountryUsed }) {
+  const [countries, setCountries] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
+  
+  const [currentCountry, setCurrentCountry] = useState(null);
+  const [imgLoading, setImgLoading] = useState(true);
+  const [imgError, setImgError] = useState(false);
+
+  // Fetch countries on mount
+  useEffect(() => {
+    setLoading(true); setFetchError(null);
+    fetch('https://restcountries.com/v3.1/all?fields=name,flags')
+     .then(res => {
+       if (!res.ok) throw new Error('Erro ao buscar países');
+       return res.json();
+     })
+     .then(data => {
+       // Filtra países com campos necessários
+       const filtered = data.filter(c =>
+         c.name && c.name.common && c.flags && (c.flags.png || c.flags.svg)
+       );
+       setCountries(filtered);
+       setLoading(false);
+     })
+     .catch(err => {
+       setFetchError('Erro ao carregar bandeiras. Tentar novamente?');
+       setLoading(false);
+     });
+   }, []);
+
+   // Sorteia país não repetido
+   function getRandomCountry() {
+     if (!countries) return null;
+     const unused = countries.filter(c => !usedCountries.includes(c.name.common));
+     if (unused.length === 0) return null; // Fim do jogo
+     let idx = Math.floor(Math.random() * unused.length);
+     return unused[idx];
+   }
+
+   // Ao países carregados ou usedCountries mudar, sorteia novo país
+   useEffect(() => {
+     if (countries && countries.length > 0) {
+       const country = getRandomCountry();
+       setCurrentCountry(country);
+       setImgLoading(true);
+       setImgError(false);
+       if (country) onCountryUsed(country.name.common);
+     }
+   // eslint-disable-next-line
+   }, [countries]);
+
+   // Retry fetch
+   function handleRetry() {
+     setCountries(null); setLoading(true); setFetchError(null);
+     setCurrentCountry(null); setImgLoading(true); setImgError(false);
+     // re-trigger fetch
+     fetch('https://restcountries.com/v3.1/all?fields=name,flags')
+     .then(res => {
+       if (!res.ok) throw new Error('Erro ao buscar países');
+       return res.json();
+     })
+     .then(data => {
+       const filtered = data.filter(c =>
+         c.name && c.name.common && c.flags && (c.flags.png || c.flags.svg)
+       );
+       setCountries(filtered);
+       setLoading(false);
+     })
+     .catch(err => {
+       setFetchError('Erro ao carregar bandeiras. Tentar novamente?');
+       setLoading(false);
+     });
+   }
+
+   // Retry image
+   function handleRetryImg() {
+     setImgLoading(true); setImgError(false);
+   }
+
+   // Render
+   return (
+     <div className="centered-container" role="main">
+       <div className="game-title" aria-label="Rodada do Jogo">
+         Rodada do Jogo
+       </div>
+       
+       {loading && (
+         <>
+           <div className="loading-spinner" role="status" aria-label="Carregando"></div>
+           <div>Carregando...</div>
+         </>
+       )}
+
+       {fetchError && (
+         <>
+           <div className="error-message">{fetchError}</div>
+           <button className="retry-btn" onClick={handleRetry} aria-label="Tentar novamente">Tentar novamente</button>
+         </>
+       )}
+
+       {!loading && !fetchError && currentCountry && (
+         <>
+           <img
+             className="flag-img"
+             src={currentCountry.flags.png || currentCountry.flags.svg}
+             alt="Bandeira de um país para adivinhar"
+             style={{ display: imgLoading ? 'none' : 'block' }}
+             onLoad={() => setImgLoading(false)}
+             onError={() => { setImgLoading(false); setImgError(true); }}
+           />
+           {imgLoading && !imgError && (
+             <>
+               <div className="loading-spinner" role="status" aria-label="Carregando imagem"></div>
+               <div>Carregando bandeira...</div>
+             </>
+           )}
+           {imgError && (
+             <>
+               <div className="error-message">Imagem não disponível.</div>
+               <button className="retry-btn" onClick={handleRetryImg} aria-label="Tentar recarregar imagem">Tentar recarregar</button>
+             </>
+           )}
+           {/* Aqui viriam as opções de resposta na próxima história */}
+         </>
+       )}
+
+       {!loading && !fetchError && !currentCountry && (
+         <div className="error-message">Parabéns! Você já viu todas as bandeiras disponíveis nesta sessão.</div>
+       )}
+     </div>
+   );
+}
+
+// App component (SPA)
+function App() {
+  const [route, navigate] = useRoute();
+  
+  // Mantém países já usados na sessão
+  const [usedCountries, setUsedCountries] = useState([]);
+  
+  function handleStart() {
+    navigate('/game');
+    setUsedCountries([]); // reinicia sessão ao voltar para home e começar de novo
+  }
+
+  function handleCountryUsed(name) {
+    setUsedCountries(prev =>
+      prev.includes(name) ? prev : [...prev, name]
+    );
+  }
+
+  return (
+    <>
+      {route === '/' && (
+        <HomeScreen onStart={handleStart} />
+      )}
+      {route === '/game' && (
+        <GameScreen usedCountries={usedCountries} onCountryUsed={handleCountryUsed} />
+      )}
+    </>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
