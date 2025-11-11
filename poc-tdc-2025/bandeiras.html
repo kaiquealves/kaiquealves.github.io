@@ -18,9 +18,50 @@
     .error-message { color: #c0392b; font-weight: bold; margin-bottom: 1rem; }
     .retry-btn { background-color: #fff; color: #2d8cf0; border: 2px solid #2d8cf0; border-radius: 6px; padding: .7rem 1.5rem; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: .5rem; }
     .retry-btn:hover, .retry-btn:focus { background-color: #eaf4ff; }
+    .options-container { display:flex; flex-wrap:wrap; gap:.9rem .9rem; justify-content:center;margin-top:.7rem;margin-bottom:.7rem;}
+    .option-btn {
+      min-width:160px;
+      background:#fff;
+      color:#222;
+      border-radius:7px;
+      border:2px solid #2d8cf0;
+      padding:.9rem 1.3rem;
+      font-size:1.13rem;
+      font-weight:bold;
+      cursor:pointer;
+      transition:.15s;
+      outline:none;
+      box-shadow:0 2px 8px rgba(45,140,240,0.07);
+      margin-bottom:.3rem;
+      position:relative;
+    }
+    .option-btn[aria-pressed="true"], .option-btn.selected {
+      background:#eaf4ff;
+      border-color:#1766b3;
+      color:#1766b3;
+    }
+    .option-btn:hover, .option-btn:focus {
+      background:#eaf4ff;
+      border-color:#1766b3;
+      color:#1766b3;
+      outline:auto;
+    }
+    .option-btn[aria-disabled="true"] {
+      opacity:.6;
+      pointer-events:none;
+    }
+    .feedback {
+      font-size:1.15rem;
+      font-weight:bold;
+      margin-top:.7rem;
+      margin-bottom:.7rem;
+    }
+    .feedback.correct { color:#27ae60;}
+    .feedback.incorrect { color:#c0392b;}
     @media (max-width:600px) {
-      .game-title { font-size: 1.7rem; }
-      .instructions { font-size: .98rem; }
+      .game-title { font-size: 1.7rem;}
+      .instructions { font-size:.98rem;}
+      .option-btn { min-width:auto;font-size:.99rem;padding:.7rem;}
     }
   </style>
 </head>
@@ -87,14 +128,102 @@ function HomeScreen({ onStart }) {
   );
 }
 
+// Lógica de sorteio das opções
+function getOptions(countries, correctCountry) {
+  // Filtra o país correto
+  const otherCountries = countries.filter(
+    c => c.name.common !== correctCountry.name.common
+  );
+  // Sorteia três países errados únicos
+  const wrongOptions = [];
+  let attempts = 0;
+  while (wrongOptions.length < 3 && attempts < countries.length * 3) {
+    const candidate = otherCountries[Math.floor(Math.random() * otherCountries.length)];
+    if (!wrongOptions.some(c => c.name.common === candidate.name.common)) {
+      wrongOptions.push(candidate);
+    }
+    attempts++;
+    if (attempts > countries.length * 2) break;
+  }
+  // Junta e embaralha as opções
+  const options = [correctCountry, ...wrongOptions]
+    .map(value => ({ value, sort: Math.random() }))
+    .sort((a, b) => a.sort - b.sort)
+    .map(({ value }) => value.name.common);
+  // Checa unicidade
+  if (new Set(options).size !== options.length) {
+    console.error("Opções duplicadas detectadas:", options);
+    return null;
+  }
+  return options;
+}
+
+// Opções de resposta (botões)
+function Options({ options, onSelect, selectedOption, disabled }) {
+  // Para acessibilidade/foco via teclado
+  const btnRefs = useRef([]);
+  
+  useEffect(() => {
+    if (btnRefs.current[0]) btnRefs.current[0].focus();
+  }, [options]);
+  
+  return (
+    <div className="options-container" role="group" aria-label="Opções de países">
+      {options.map((opt, idx) => (
+        <button
+          key={opt}
+          ref={el => btnRefs.current[idx] = el}
+          className={
+            "option-btn" +
+            (selectedOption === opt ? " selected" : "")
+          }
+          aria-label={`Opção: ${opt}`}
+          aria-pressed={selectedOption === opt}
+          aria-disabled={disabled}
+          tabIndex={0}
+          role="button"
+          onClick={() => !disabled && onSelect(opt)}
+          onKeyDown={e => {
+            if ((e.key === 'Enter' || e.key === ' ') && !disabled) {
+              e.preventDefault();
+              onSelect(opt);
+            } else if ((e.key === 'ArrowRight' || e.key === 'ArrowDown') && !disabled) {
+              e.preventDefault();
+              const next = (idx + 1) % options.length;
+              btnRefs.current[next]?.focus();
+            } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowUp') && !disabled) {
+              e.preventDefault();
+              const prev = (idx -1 + options.length) % options.length;
+              btnRefs.current[prev]?.focus();
+            }
+          }}
+        >
+          {opt}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // GameScreen component
 function GameScreen({ usedCountries, onCountryUsed }) {
   const [countries, setCountries] = useState(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
+  
   const [currentCountry, setCurrentCountry] = useState(null);
+  
   const [imgLoading, setImgLoading] = useState(true);
   const [imgError, setImgError] = useState(false);
+
+  // Opções da rodada
+  const [options, setOptions] = useState([]);
+  
+  // Estado da resposta
+  const [selectedOption, setSelectedOption] = useState(null);
+  
+  // Feedback visual
+  const [feedback, setFeedback] = useState(null);
 
   // Fetch countries on mount
   useEffect(() => {
@@ -119,6 +248,7 @@ function GameScreen({ usedCountries, onCountryUsed }) {
       });
   }, []);
 
+  
   // Sorteia país não repetido
   function getRandomCountry() {
     if (!countries) return null;
@@ -128,130 +258,204 @@ function GameScreen({ usedCountries, onCountryUsed }) {
     return unused[idx];
   }
 
-  // Ao países carregados ou usedCountries mudar, sorteia novo país
+  
+  // Sorteia nova rodada (país + opções)
+  function newRound() {
+    if (!countries || countries.length < 4) return false;
+
+    let country = getRandomCountry();
+    if (!country) return false;
+
+    let opts = getOptions(countries, country);
+
+    // Se não conseguiu gerar opções únicas tenta novamente até um limite
+    let tries = 0;
+    while ((!opts || opts.length !==4) && tries < countries.length *2) {
+      country = getRandomCountry();
+      opts = getOptions(countries, country);
+      tries++;
+    }
+
+    if (!opts || opts.length !==4) {
+      setFetchError("Não foi possível carregar opções. Tente novamente.");
+      return false;
+    }
+
+    setCurrentCountry(country);
+    setOptions(opts);
+    setImgLoading(true);
+    setImgError(false);
+    setSelectedOption(null);
+    setFeedback(null);
+
+    onCountryUsed(country.name.common);
+
+    return true;
+  }
+
+  
+  // Ao países carregados ou usedCountries mudar, sorteia novo país/opções
   useEffect(() => {
-    if (countries && countries.length > 0) {
-      const country = getRandomCountry();
-      setCurrentCountry(country);
-      setImgLoading(true);
-      setImgError(false);
-      if (country) onCountryUsed(country.name.common);
+    if (countries && countries.length >=4) {
+      newRound();
     }
     // eslint-disable-next-line
   }, [countries]);
 
-  // Retry fetch
-  function handleRetry() {
-    setCountries(null);
-    setLoading(true);
-    setFetchError(null);
-    setCurrentCountry(null);
-    setImgLoading(true);
-    setImgError(false);
-    fetch('https://restcountries.com/v3.1/all?fields=name,flags')
-      .then(res => {
-        if (!res.ok) throw new Error('Erro ao buscar países');
-        return res.json();
-      })
-      .then(data => {
-        const filtered = data.filter(c =>
-          c.name && c.name.common && c.flags && (c.flags.png || c.flags.svg)
-        );
-        setCountries(filtered);
-        setLoading(false);
-      })
-      .catch(err => {
-        setFetchError('Erro ao carregar bandeiras. Tentar novamente?');
-        setLoading(false);
-      });
-  }
+  
+   // Retry fetch
+   function handleRetry() {
+     setCountries(null);
+     setLoading(true);
+     setFetchError(null);
+     setCurrentCountry(null);
+     setImgLoading(true);
+     setImgError(false);
+     setOptions([]);
+     fetch('https://restcountries.com/v3.1/all?fields=name,flags')
+       .then(res => {
+         if (!res.ok) throw new Error('Erro ao buscar países');
+         return res.json();
+       })
+       .then(data => {
+         const filtered = data.filter(c =>
+           c.name && c.name.common && c.flags && (c.flags.png || c.flags.svg)
+         );
+         setCountries(filtered);
+         setLoading(false);
+       })
+       .catch(err => {
+         setFetchError('Erro ao carregar bandeiras. Tentar novamente?');
+         setLoading(false);
+       });
+   }
 
-  // Retry image
-  function handleRetryImg() {
-    setImgLoading(true);
-    setImgError(false);
-    // Força recarregar a imagem trocando a key do elemento img
-    setCurrentCountry({ ...currentCountry });
-  }
+   // Retry image
+   function handleRetryImg() {
+     setImgLoading(true);
+     setImgError(false);
+     // Força recarregar a imagem trocando a key do elemento img
+     setCurrentCountry({ ...currentCountry });
+   }
 
-  return (
-    <div className="centered-container" role="main">
-      <div className="game-title" aria-label="Rodada do Jogo">
-        Rodada do Jogo
-      </div>
-      {loading && (
-        <>
-          <div className="loading-spinner" role="status" aria-label="Carregando"></div>
-          <div>Carregando...</div>
-        </>
-      )}
-      {fetchError && (
-        <>
-          <div className="error-message">{fetchError}</div>
-          <button className="retry-btn" onClick={handleRetry} aria-label="Tentar novamente">Tentar novamente</button>
-        </>
-      )}
-      {!loading && !fetchError && currentCountry && (
-        <>
-          {!imgError ? (
-            <>
-              {imgLoading && (
-                <>
-                  <div className="loading-spinner" role="status" aria-label="Carregando imagem"></div>
-                  <div>Carregando bandeira...</div>
-                </>
-              )}
-              <img
-                className="flag-img"
-                src={currentCountry.flags.png || currentCountry.flags.svg}
-                alt="Bandeira de um país para adivinhar"
-                style={{ display: imgLoading ? 'none' : 'block' }}
-                onLoad={() => setImgLoading(false)}
-                onError={() => { setImgLoading(false); setImgError(true); }}
-              />
-            </>
-          ) : (
-            <>
-              <div className="error-message">Imagem não disponível.</div>
-              <button className="retry-btn" onClick={handleRetryImg} aria-label="Tentar recarregar imagem">Tentar recarregar</button>
-            </>
-          )}
-          {/* Aqui viriam as opções de resposta na próxima história */}
-        </>
-      )}
-      {!loading && !fetchError && !currentCountry && (
-        <div className="error-message">Parabéns! Você já viu todas as bandeiras disponíveis nesta sessão.</div>
-      )}
-    </div>
-  );
+   function handleSelect(option) {
+     if (selectedOption) return;
+
+     setSelectedOption(option);
+
+     if (option === currentCountry.name.common) {
+       setFeedback({ type:'correct', msg:'Correto! 🎉' });
+       // Avança para próxima rodada após delay
+       setTimeout(() => newRound(),1200);
+     } else {
+       setFeedback({ type:'incorrect', msg:`Errado! Era ${currentCountry.name.common}.` });
+       // Avança para próxima rodada após delay
+       setTimeout(() => newRound(),1700);
+     }
+   }
+
+   // Se menos de quatro países disponíveis
+   if (!loading && countries && countries.length <4) {
+     return (
+       <div className="centered-container" role="main">
+         <div className="game-title">Jogo de Bandeiras</div>
+         <div className="error-message">Não foi possível carregar opções. Tente novamente.</div>
+         <button className="retry-btn" onClick={handleRetry} aria-label="Tentar novamente">Tentar novamente</button>
+       </div>
+     );
+   }
+
+   return (
+     <div className="centered-container" role="main">
+       <div className="game-title" aria-label="Rodada do Jogo">
+         Rodada do Jogo
+       </div>
+       {loading && (
+         <>
+           <div className="loading-spinner" role="status" aria-label="Carregando"></div>
+           <div>Carregando...</div>
+         </>
+       )}
+       {fetchError && (
+         <>
+           <div className="error-message">{fetchError}</div>
+           <button className="retry-btn" onClick={handleRetry} aria-label="Tentar novamente">Tentar novamente</button>
+         </>
+       )}
+       {!loading && !fetchError && currentCountry && (
+         <>
+           {!imgError ? (
+             <>
+               {imgLoading && (
+                 <>
+                   <div className="loading-spinner" role="status" aria-label="Carregando imagem"></div>
+                   <div>Carregando bandeira...</div>
+                 </>
+               )}
+               <img
+                 className="flag-img"
+                 src={currentCountry.flags.png || currentCountry.flags.svg}
+                 alt={`Bandeira de um país para adivinhar`}
+                 style={{ display: imgLoading ? 'none' : 'block' }}
+                 onLoad={() => setImgLoading(false)}
+                 onError={() => { setImgLoading(false); setImgError(true); }}
+               />
+             </>
+           ) : (
+             <>
+               <div className="error-message">Imagem não disponível.</div>
+               <button className="retry-btn" onClick={handleRetryImg} aria-label="Tentar recarregar imagem">Tentar recarregar</button>
+             </>
+           )}
+           {/* Opções */}
+           {!imgLoading && !imgError && options && options.length ===4 && (
+             <>
+               <Options
+                 options={options}
+                 onSelect={handleSelect}
+                 selectedOption={selectedOption}
+                 disabled={!!selectedOption}
+               />
+               {feedback &&
+                 <div className={`feedback ${feedback.type}`}>{feedback.msg}</div>
+               }
+             </>
+           )}
+         </>
+       )}
+       {!loading && !fetchError && !currentCountry && (
+         <div className="error-message">Parabéns! Você já viu todas as bandeiras disponíveis nesta sessão.</div>
+       )}
+     </div>
+   );
 }
 
 // App component (SPA)
 function App() {
-  const [route, navigate] = useRoute();
-  // Mantém países já usados na sessão (não persiste em storage)
-  const [usedCountries, setUsedCountries] = useState([]);
+ const [route, navigate] = useRoute();
+ // Mantém países já usados na sessão (não persiste em storage)
+ const [usedCountries, setUsedCountries] = useState([]);
 
-  function handleStart() {
-    // Sempre reinicia o array ao começar novo jogo
-    setUsedCountries([]);
-    navigate('/game');
-  }
+ function handleStart() {
+   // Sempre reinicia o array ao começar novo jogo
+   setUsedCountries([]);
+   navigate('/game');
+ }
 
-  function handleCountryUsed(name) {
-    setUsedCountries(prev => prev.includes(name) ? prev : [...prev, name]);
-  }
+ function handleCountryUsed(name) {
+   setUsedCountries(prev => prev.includes(name) ? prev : [...prev, name]);
+ }
 
-  return (
-    <>
-      {route === '/' && (
-        <HomeScreen onStart={handleStart} />
-      )}
-      {route === '/game' && (
-        <GameScreen usedCountries={usedCountries} onCountryUsed={handleCountryUsed} />
-      )}
-    </>
-  );
+ return (
+   <>
+     {route === '/' && (
+       <HomeScreen onStart={handleStart} />
+     )}
+     {route === '/game' && (
+       <GameScreen usedCountries={usedCountries} onCountryUsed={handleCountryUsed} />
+     )}
+   </>
+ );
 }
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
