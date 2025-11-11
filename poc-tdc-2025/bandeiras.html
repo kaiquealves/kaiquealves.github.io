@@ -10,7 +10,26 @@
     .score-bar { width:100%; display:flex; justify-content:center; align-items:center; background:#eaf4ff; color:#1766b3; font-size:1.2rem; padding:.6rem 0 .3rem 0; position:absolute; top:0; left:0;}
     .centered-container { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 1rem; }
     .game-title { font-size: 2.5rem; font-weight: bold; margin-bottom: 1.5rem; color: #2d8cf0; letter-spacing: 1px; text-align: center; }
-    .instructions { max-width: 400px; margin-top: 1.5rem; margin-bottom: 2rem; font-size: 1.1rem; color: #555; text-align: center; }
+    .instructions-brief {
+      margin-top: 1.4rem;
+      margin-bottom: 0;
+      max-width: 440px;
+      width: 100%;
+      padding: .85rem 1.2rem;
+      border-radius: 6px;
+      background: #f0f7ff;
+      color: #252525;
+      font-size: 1.07rem;
+      line-height: 1.55;
+      box-sizing: border-box;
+      text-align: center;
+      border-left: 4px solid #2d8cf0;
+      box-shadow: 0 2px 8px rgba(45,140,240,0.07);
+      outline: none;
+    }
+    .instructions-brief[tabindex="0"]:focus {
+      outline: 2px solid #1766b3;
+    }
     .start-btn { background-color: #2d8cf0; color: #fff; border: none; border-radius: 6px; padding: 1rem 2.5rem; font-size: 1.3rem; font-weight: bold; cursor: pointer; box-shadow: 0 2px 8px rgba(45,140,240,0.08); transition: background .2s, box-shadow .2s; outline-offset: 2px; }
     .start-btn:hover, .start-btn:focus { background-color: #1766b3; box-shadow: 0 4px 16px rgba(45,140,240,0.15); }
     .flag-img { max-width: 80vw; max-height: 40vh; width: auto; height: auto; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 2rem; background-color: #eaeaea; }
@@ -82,7 +101,7 @@
     .exit-btn:hover,.exit-btn:focus{background:#fde8e7;}
     @media (max-width:600px){
       .game-title { font-size:1.7rem;}
-      .instructions{font-size:.98rem;}
+      .instructions-brief{font-size:.97rem;margin-top:.85rem;padding:.76rem .7rem;}
       .option-btn{min-width:auto;font-size:.99rem;padding:.7rem;}
       .summary-panel{padding:.9rem;}
     }
@@ -122,14 +141,18 @@ function ScoreBar({ score, round }) {
   );
 }
 
-// Instruções
-function Instructions() {
+// Instruções breves da tela inicial (ACESSÍVEL)
+function InstructionsBrief() {
   return (
-    <div className="instructions" id="instructions">
-      Tente adivinhar a qual país pertence a bandeira exibida.<br />
-      A cada rodada, uma nova bandeira será sorteada.<br />
-      Clique em "Começar" para iniciar!
-    </div>
+    <section
+      className="instructions-brief"
+      aria-label="Instrução do jogo"
+      tabIndex={0}
+      data-testid="instruction-text"
+      role="note"
+    >
+      Clique em ‘Começar’ e tente adivinhar de qual país é a bandeira que aparecerá na tela.
+    </section>
   );
 }
 
@@ -155,10 +178,14 @@ function HomeScreen({ onStart }) {
           }
         }}
         autoFocus
+        style={{marginBottom:'0'}}
+        id="start-button"
+        data-testid="start-button"
       >
         Começar
       </button>
-      <Instructions />
+      {/* Instrução imediatamente abaixo do botão */}
+      <InstructionsBrief />
     </div>
   );
 }
